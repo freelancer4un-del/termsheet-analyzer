@@ -515,12 +515,27 @@ def create_exit_diagram(rounds: List[RoundInput], founders_shares: float, max_ex
     for name, data in cp_data.items():
         cp_val = data['conversion_point']
         if cp_val is None or not math.isfinite(cp_val):
-            continue  # NaN / inf 방어
+            continue
 
+        color = colors.get(name, '#64748b')
+
+        # 세로선
         fig.add_vline(
             x=cp_val,
             line_dash="dash",
-            line_color=colors.get(name, '#64748b'),
+            line_color=color,
+        )
+
+        # 레이블
+        fig.add_annotation(
+            x=cp_val,
+            y=1.02,              # 그래프 위쪽에 살짝
+            xref="x",
+            yref="paper",
+            text=f"{name} CP",
+            showarrow=False,
+            font=dict(color=color, size=10),
+            align="center",
         )
 
     
