@@ -816,33 +816,28 @@ def main():
                 
                 order = get_conversion_order(st.session_state.rounds)
                 
-                # RVPS 테이블
-                # 기존
-rvps_html = """
-                <table class="result-table">
-                <tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
-                """
 
-# 수정
-rvps_html = """
-<table class="result-table">
-<tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
-"""
-for name, rvps in order:
-    r = next(r for r in st.session_state.rounds if r.name == name)
-    rvps_html += f"""
-<tr>
-    <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
-    <td>{r.investment:.1f}억</td>
-    <td>{r.shares:.0f}</td>
-    <td>{r.liquidation_pref}x</td>
-    <td>{r.redemption_value:.1f}억</td>
-    <td><strong>{rvps:.4f}</strong></td>
-</tr>
-"""
-rvps_html += "</table>"
 
-st.markdown(rvps_html, unsafe_allow_html=True)
+            # 수정
+            rvps_html = """
+            <table class="result-table">
+            <tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
+            """
+            for name, rvps in order:
+                r = next(r for r in st.session_state.rounds if r.name == name)
+                rvps_html += f"""
+            <tr>
+                <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
+                <td>{r.investment:.1f}억</td>
+                <td>{r.shares:.0f}</td>
+                <td>{r.liquidation_pref}x</td>
+                <td>{r.redemption_value:.1f}억</td>
+                <td><strong>{rvps:.4f}</strong></td>
+            </tr>
+            """
+            rvps_html += "</table>"
+            
+            st.markdown(rvps_html, unsafe_allow_html=True)
 
                 
                 # 전환순서 표시
