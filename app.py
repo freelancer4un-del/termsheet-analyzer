@@ -313,6 +313,114 @@ class GlobalInput:
     holding_period: float = 5  # 예상 보유기간 (년)
 
 # =============================================================================
+# 지분 구조 / 밸류에이션 유틸
+# =============================================================================
+def calculate_ownership(rounds: List[RoundInput], founders_shares: float) -> Dict:
+    """
+    투자 후 지분 구조 계산 (founders_shares와 각 라운드 shares 단위 동일: 만주 기준)
+    반환 예:
+    {
+        '창업자': {'shares': 1000, 'ownership': 25.0},
+        'Series A': {'shares': 3000, 'ownership': 75.0, 'investment': 20},
+        'total_shares': 4000
+    }
+    """
+    total_shares = founders_shares + sum(
+        r.shares for r in rounds if r.active and r.shares > 0
+    )
+    
+    result: Dict[str, Dict] = {}
+    if total_shares <= 0:
+        return {'total_shares': 0}
+    
+    # 창업자
+    result['창업자'] = {
+        'shares': founders_shares,
+        'ownership': founders_shares / total_shares * 100,
+    }
+    
+    # 각 시리즈
+    for r in rounds:
+        if r.active and r.shares > 0:
+            result[r.name] = {
+                'shares': r.shares,
+                'ownership': r.shares / total_shares * 100,
+                'investment': r.investment,
+            }
+    
+    result['total_shares'] = total_shares
+    return result
+
+
+def create_ownership_pie(ownership: Dict) -> go.Figure:
+    """지분 구조 파이 차트 (창업자 vs 시리즈별)"""
+    labels = []
+    values = []
+    colors = []
+    
+    color_map = {
+        '창업자': '#10b981',
+        'Series A': '#6366f1',
+        'Series B': '#8b5cf6',
+        'Series C': '#a855f7',
+        'Series D': '#d946ef',
+        'Series E': '#ec4899',
+        'Series F': '#f43f5e',
+    }
+    
+    for key, data in ownership.items():
+        if key == 'total_shares':
+            continue
+        if not isinstance(data, dict):
+            continue
+        pct = data.get('ownership', 0)
+        if pct <= 0:
+            continue
+        
+        labels.append(key)
+        values.append(pct)
+        colors.append(color_map.get(key, '#64748b'))
+    
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.6,
+                marker=dict(colors=colors, line=dict(color='#0a0a0f', width=2)),
+                textinfo='label+percent',
+                textfont=dict(color='#f8fafc', size=12),
+                hovertemplate='<b>%{label}</b><br>지분율: %{percent}<br>%{value:.1f}%<extra></extra>',
+            )
+        ]
+    )
+    
+    fig.update_layout(
+        title=dict(text='지분 구조', font=dict(size=16, color='#f8fafc')),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=20, r=20, t=40, b=20),
+        annotations=[
+            dict(
+                text='지분율',
+                x=0.5,
+                y=0.5,
+                font=dict(size=13, color='#64748b'),
+                showarrow=False,
+            )
+        ],
+    )
+    
+    return fig
+
+
+def format_currency(value: float) -> str:
+    """통화 포맷 (억원 기준)"""
+    if abs(value) >= 10000:
+        return f"{value/10000:,.1f}조원"
+    return f"{value:,.1f}억원"
+
+# =============================================================================
 # 핵심 계산 함수
 # =============================================================================
 def get_conversion_order(rounds: List[RoundInput]) -> List[Tuple[str, float]]:
@@ -685,9 +793,9 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # ==========================================================================
+    # ======================================================================
     # 사이드바
-    # ==========================================================================
+    # ======================================================================
     with st.sidebar:
         st.markdown("## ⚙️ 설정")
         
@@ -746,16 +854,16 @@ def main():
             "허들레이트 (%)", 0.0, 15.0, float(st.session_state.fund_input.hurdle_rate), 0.5
         )
     
-    # ==========================================================================
+    # ======================================================================
     # 탭 구성
-    # ==========================================================================
+    # ======================================================================
     tab1, tab2, tab3, tab4 = st.tabs([
         "📝 투자조건 입력", "📊 Exit Diagram", "💼 Valuation 분석", "📖 사용법"
     ])
     
-# =========================================================================
-# TAB 1: 투자조건 입력
-# =========================================================================
+    # =========================================================================
+    # TAB 1: 투자조건 입력
+    # =========================================================================
     with tab1:
         st.markdown('<div class="section-title">📝 EXIT DIAGRAM INPUTS</div>', unsafe_allow_html=True)
         st.caption("vcvtools.com 방식의 Term Sheet 입력")
@@ -833,21 +941,21 @@ def main():
                 order = get_conversion_order(st.session_state.rounds)
     
                 rvps_html = """
-    <table class="result-table">
-    <tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
-    """
+<table class="result-table">
+<tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
+"""
                 for name, rvps in order:
                     r = next(r for r in st.session_state.rounds if r.name == name)
                     rvps_html += f"""
-    <tr>
-        <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
-        <td>{r.investment:.1f}억</td>
-        <td>{r.shares:.0f}</td>
-        <td>{r.liquidation_pref}x</td>
-        <td>{r.redemption_value:.1f}억</td>
-        <td><strong>{rvps:.4f}</strong></td>
-    </tr>
-    """
+<tr>
+    <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
+    <td>{r.investment:.1f}억</td>
+    <td>{r.shares:.0f}</td>
+    <td>{r.liquidation_pref}x</td>
+    <td>{r.redemption_value:.1f}억</td>
+    <td><strong>{rvps:.4f}</strong></td>
+</tr>
+"""
                 rvps_html += "</table>"
                 st.markdown(rvps_html, unsafe_allow_html=True)
     
@@ -857,19 +965,19 @@ def main():
                 )
                 st.markdown(
                     f"""
-    <div class="conversion-order-box">
-        <strong>전환순서:</strong> {order_badges}
-    </div>
-    """,
+<div class="conversion-order-box">
+    <strong>전환순서:</strong> {order_badges}
+</div>
+""",
                     unsafe_allow_html=True,
                 )
     
                 st.markdown(
                     """
-    <div class="info-box">
-        💡 <strong>해석:</strong> RVPS가 낮다 = 주당 상환받을 금액이 적다 = 전환해서 지분을 받는 것이 더 빨리 유리해짐
-    </div>
-    """,
+<div class="info-box">
+    💡 <strong>해석:</strong> RVPS가 낮다 = 주당 상환받을 금액이 적다 = 전환해서 지분을 받는 것이 더 빨리 유리해짐
+</div>
+""",
                     unsafe_allow_html=True,
                 )
     
@@ -945,81 +1053,60 @@ def main():
                             unsafe_allow_html=True,
                         )
     
-            st.markdown("#### 📋 지분 내역")
+                # ------------------------------
+                # 3) 지분 내역 테이블
+                # ------------------------------
+                st.markdown("#### 📋 지분 내역")
 
-            # founders 정보가 dict에 없을 때도 안전하게 처리
-            founder_info = ownership.get("founders")
-
-            if founder_info is None:
-                founders_shares = st.session_state.global_input.founders_shares
-
-                # 투자자 주식수 합계 (있으면 사용, 없으면 RoundInput의 shares 사용)
-                investor_shares_sum = sum(
-                    ownership.get(r.name, {}).get("shares", r.shares)
-                    for r in valid_rounds
-                )
-                total_shares = founders_shares + investor_shares_sum
-                founder_own = (
-                    0.0 if total_shares == 0 else founders_shares / total_shares * 100
-                )
-
-                founder_info = {
-                    "shares": founders_shares,
-                    "ownership": founder_own,
-                }
-
-            table_data = []
-            table_data.append(
-                {
-                    "구분": "창업자",
-                    "주식수 (만주)": f"{founder_info['shares']:,.0f}",
-                    "지분율": f"{founder_info['ownership']:.2f}%",
-                    "투자금액": "-",
-                }
-            )
-
-            for r in valid_rounds:
-                if r.name in ownership:
-                    table_data.append(
-                        {
-                            "구분": r.name,
-                            "주식수 (만주)": f"{ownership[r.name].get('shares', r.shares):,.0f}",
-                            "지분율": f"{ownership[r.name].get('ownership', 0):.2f}%",
-                            "투자금액": f"{r.investment:,.1f}억",
-                        }
+                # 창업자 정보 (ownership dict에 없을 경우 계산)
+                founder_info = ownership.get("창업자")
+                if founder_info is None:
+                    founders_shares = st.session_state.global_input.founders_shares
+                    investor_shares_sum = sum(
+                        ownership.get(r.name, {}).get("shares", r.shares)
+                        for r in valid_rounds
                     )
+                    total_shares = founders_shares + investor_shares_sum
+                    founder_own = (
+                        0.0 if total_shares == 0 else founders_shares / total_shares * 100
+                    )
+                    founder_info = {
+                        "shares": founders_shares,
+                        "ownership": founder_own,
+                    }
 
-            st.dataframe(
-                pd.DataFrame(table_data),
-                width="stretch",
-                hide_index=True,
-            )
+                table_data = []
+                table_data.append(
+                    {
+                        "구분": "창업자",
+                        "주식수 (만주)": f"{founder_info['shares']:,.0f}",
+                        "지분율": f"{founder_info['ownership']:.2f}%",
+                        "투자금액": "-",
+                    }
+                )
 
-                    
                 for r in valid_rounds:
                     if r.name in ownership:
                         table_data.append(
                             {
                                 "구분": r.name,
-                                "주식수 (만주)": f"{ownership[r.name]['shares']:,.0f}",
-                                "지분율": f"{ownership[r.name]['ownership']:.2f}%",
+                                "주식수 (만주)": f"{ownership[r.name].get('shares', r.shares):,.0f}",
+                                "지분율": f"{ownership[r.name].get('ownership', 0):.2f}%",
                                 "투자금액": f"{r.investment:,.1f}억",
                             }
                         )
-    
-                    st.dataframe(
-                        pd.DataFrame(table_data),
-                        width="stretch",
-                        hide_index=True,
-                    )
-    
+
+                st.dataframe(
+                    pd.DataFrame(table_data),
+                    width="stretch",
+                    hide_index=True,
+                )
+
             else:
                 st.info("각 Series의 주식수(만주)를 0보다 크게 입력하면 RVPS와 지분 구조가 계산됩니다.")
         else:
             st.info("👆 위에서 분석할 Series를 선택하세요.")
     
-        
-
     # =========================================================================
     # TAB 2: Exit Diagram
     # =========================================================================
@@ -1165,7 +1252,6 @@ def main():
 
             st.markdown(result_html, unsafe_allow_html=True)
 
-            
             # 워터폴 차트
             st.markdown("---")
             st.markdown("#### GP/LP 분배 워터폴")
@@ -1210,116 +1296,6 @@ def main():
                 
                 st.success(f"**{target.name} Implied-post Valuation:** {mid:.2f}억원")
                 st.caption(f"이 기업가치에서 LP Cost ({lp_cost:.2f}억) = LP Valuation")
-
-    # -----------------------------------------------------------------------------
-# 지분 구조 / 밸류에이션 유틸
-# -----------------------------------------------------------------------------
-def calculate_ownership(rounds: List[RoundInput], founders_shares: float) -> Dict:
-    """
-    투자 후 지분 구조 계산 (founders_shares와 각 라운드 shares 단위 동일: 만주 기준)
-    반환 예:
-    {
-        '창업자': {'shares': 1000, 'ownership': 25.0},
-        'Series A': {'shares': 3000, 'ownership': 75.0, 'investment': 20},
-        'total_shares': 4000
-    }
-    """
-    total_shares = founders_shares + sum(
-        r.shares for r in rounds if r.active and r.shares > 0
-    )
-    
-    result: Dict[str, Dict] = {}
-    if total_shares <= 0:
-        return {'total_shares': 0}
-    
-    # 창업자
-    result['창업자'] = {
-        'shares': founders_shares,
-        'ownership': founders_shares / total_shares * 100,
-    }
-    
-    # 각 시리즈
-    for r in rounds:
-        if r.active and r.shares > 0:
-            result[r.name] = {
-                'shares': r.shares,
-                'ownership': r.shares / total_shares * 100,
-                'investment': r.investment,
-            }
-    
-    result['total_shares'] = total_shares
-    return result
-
-
-def create_ownership_pie(ownership: Dict) -> go.Figure:
-    """지분 구조 파이 차트 (창업자 vs 시리즈별)"""
-    labels = []
-    values = []
-    colors = []
-    
-    color_map = {
-        '창업자': '#10b981',
-        'Series A': '#6366f1',
-        'Series B': '#8b5cf6',
-        'Series C': '#a855f7',
-        'Series D': '#d946ef',
-        'Series E': '#ec4899',
-        'Series F': '#f43f5e',
-    }
-    
-    for key, data in ownership.items():
-        if key == 'total_shares':
-            continue
-        if not isinstance(data, dict):
-            continue
-        pct = data.get('ownership', 0)
-        if pct <= 0:
-            continue
-        
-        labels.append(key)
-        values.append(pct)
-        colors.append(color_map.get(key, '#64748b'))
-    
-    fig = go.Figure(
-        data=[
-            go.Pie(
-                labels=labels,
-                values=values,
-                hole=0.6,
-                marker=dict(colors=colors, line=dict(color='#0a0a0f', width=2)),
-                textinfo='label+percent',
-                textfont=dict(color='#f8fafc', size=12),
-                hovertemplate='<b>%{label}</b><br>지분율: %{percent}<br>%{value:.1f}%<extra></extra>',
-            )
-        ]
-    )
-    
-    fig.update_layout(
-        title=dict(text='지분 구조', font=dict(size=16, color='#f8fafc')),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=20, r=20, t=40, b=20),
-        annotations=[
-            dict(
-                text='지분율',
-                x=0.5,
-                y=0.5,
-                font=dict(size=13, color='#64748b'),
-                showarrow=False,
-            )
-        ],
-    )
-    
-    return fig
-
-
-def format_currency(value: float) -> str:
-    """통화 포맷 (억원 기준)"""
-    # 1조 이상이면 조 단위로 표시
-    if abs(value) >= 10000:
-        return f"{value/10000:,.1f}조원"
-    return f"{value:,.1f}억원"
-
     
     # =========================================================================
     # TAB 4: 사용법
@@ -1398,6 +1374,7 @@ def format_currency(value: float) -> str:
             <p style="color:#94a3b8;">VC Term Sheet Analyzer v2.1</p>
         </div>
         """, unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
