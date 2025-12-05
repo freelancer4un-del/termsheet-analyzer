@@ -1006,10 +1006,6 @@ def main():
 
         col_left, col_right = st.columns([1, 1])
 
-        with col_left:
-            fig_pie = create_ownership_pie(ownership)
-            st.plotly_chart(fig_pie, width="stretch", key="ownership_pie_chart")
-
         with col_right:
             st.markdown("#### 💰 밸류에이션")
 
