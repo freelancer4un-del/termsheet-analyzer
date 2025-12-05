@@ -513,9 +513,16 @@ def create_exit_diagram(rounds: List[RoundInput], founders_shares: float, max_ex
     
     # 전환포인트 표시
     for name, data in cp_data.items():
-        fig.add_vline(x=data['conversion_point'], line_dash="dash",
-                      line_color=colors.get(name, '#64748b'),
-                      annotation_text=f"{name} CP", annotation_position="top")
+        cp_val = data['conversion_point']
+        if cp_val is None or not math.isfinite(cp_val):
+            continue  # NaN / inf 방어
+
+        fig.add_vline(
+            x=cp_val,
+            line_dash="dash",
+            line_color=colors.get(name, '#64748b'),
+        )
+
     
     fig.update_layout(
         title=dict(text='Exit Diagram (Composite)', font=dict(size=16, color='#f8fafc')),
