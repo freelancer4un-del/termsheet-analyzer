@@ -775,86 +775,98 @@ def main():
         
         if active_rounds:
             st.markdown("#### 라운드별 상세 조건")
-            
+
             # 입력 폼
             input_cols = st.columns(len(active_rounds))
-            
+
             for idx, r in enumerate(active_rounds):
                 with input_cols[idx]:
                     st.markdown(f"**{r.name}**")
-                    
+
                     r.security_type = st.selectbox(
                         "증권유형", ["RCPS", "CPS", "BW", "CB"],
                         key=f"type_{r.name}",
-                        help="RCPS: 상환전환우선주, CPS: 전환우선주"
+                        help="RCPS: 상환전환우선주, CPS: 전환우선주",
                     )
-                    
+
                     r.investment = st.number_input(
                         "투자금액 (억원)", min_value=0.0, max_value=10000.0,
-                        value=float(r.investment), step=1.0, key=f"inv_{r.name}"
+                        value=float(r.investment), step=1.0, key=f"inv_{r.name}",
                     )
-                    
+
                     r.shares = st.number_input(
                         "주식수 (만주)", min_value=0.0, max_value=100000.0,
-                        value=float(r.shares), step=10.0, key=f"shares_{r.name}"
+                        value=float(r.shares), step=10.0, key=f"shares_{r.name}",
                     )
-                    
+
                     r.liquidation_pref = st.selectbox(
                         "청산우선권", [1.0, 1.5, 2.0, 2.5, 3.0],
                         index=0, key=f"lp_{r.name}",
-                        help="상환 시 투자금액의 배수"
+                        help="상환 시 투자금액의 배수",
                     )
-            
+
             st.markdown("---")
-            
+
             # RVPS 및 전환순서
             valid_rounds = [r for r in active_rounds if r.shares > 0]
-            
+
             if valid_rounds:
-                st.markdown('<div class="section-title">📋 전환순서 (Conversion Order)</div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="section-title">📋 전환순서 (Conversion Order)</div>',
+                    unsafe_allow_html=True,
+                )
                 st.caption("📖 강의자료: Conversion-Order Shortcut - RVPS가 낮을수록 먼저 전환")
-                
+
                 order = get_conversion_order(st.session_state.rounds)
-                
 
+                # RVPS 테이블
+                rvps_html = """
+<table class="result-table">
+<tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
+"""
+                for name, rvps in order:
+                    r = next(r for r in st.session_state.rounds if r.name == name)
+                    rvps_html += f"""
+<tr>
+    <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
+    <td>{r.investment:.1f}억</td>
+    <td>{r.shares:.0f}</td>
+    <td>{r.liquidation_pref}x</td>
+    <td>{r.redemption_value:.1f}억</td>
+    <td><strong>{rvps:.4f}</strong></td>
+</tr>
+"""
+                rvps_html += "</table>"
 
-            # 수정
-            rvps_html = """
-            <table class="result-table">
-            <tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
-            """
-            for name, rvps in order:
-                r = next(r for r in st.session_state.rounds if r.name == name)
-                rvps_html += f"""
-            <tr>
-                <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
-                <td>{r.investment:.1f}억</td>
-                <td>{r.shares:.0f}</td>
-                <td>{r.liquidation_pref}x</td>
-                <td>{r.redemption_value:.1f}억</td>
-                <td><strong>{rvps:.4f}</strong></td>
-            </tr>
-            """
-            rvps_html += "</table>"
-            
-            st.markdown(rvps_html, unsafe_allow_html=True)
+                st.markdown(rvps_html, unsafe_allow_html=True)
 
-                
                 # 전환순서 표시
-                order_badges = " → ".join([f"<span class='series-badge {n.lower().replace(' ','-')}'>{n}</span>" for n, _ in order])
-                st.markdown(f"""
-                <div class="conversion-order-box">
-                    <strong>전환순서:</strong> {order_badges}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("""
-                <div class="info-box">
-                    💡 <strong>해석:</strong> RVPS가 낮다 = 주당 상환받을 금액이 적다 = 전환해서 지분을 받는 것이 더 빨리 유리해짐
-                </div>
-                """, unsafe_allow_html=True)
+                order_badges = " → ".join(
+                    [
+                        f"<span class='series-badge {n.lower().replace(' ','-')}'>{n}</span>"
+                        for n, _ in order
+                    ]
+                )
+                st.markdown(
+                    f"""
+<div class="conversion-order-box">
+    <strong>전환순서:</strong> {order_badges}
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown(
+                    """
+<div class="info-box">
+    💡 <strong>해석:</strong> RVPS가 낮다 = 주당 상환받을 금액이 적다 = 전환해서 지분을 받는 것이 더 빨리 유리해짐
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
         else:
             st.info("👆 위에서 분석할 Series를 선택하세요.")
+
     
     # =========================================================================
     # TAB 2: Exit Diagram
@@ -925,23 +937,23 @@ def main():
             
             # 분배 결과 테이블
             payoff_html = """
-        <table class="result-table">
-        <tr><th>이해관계자</th><th>상환액</th><th>전환액</th><th>합계</th><th>비율</th></tr>
-        """
-        for party, data in payoffs.items():
-        pct = (data['합계'] / exit_val * 100) if exit_val > 0 else 0
-        payoff_html += f"""
+<table class="result-table">
+<tr><th>이해관계자</th><th>상환액</th><th>전환액</th><th>합계</th><th>비율</th></tr>
+"""
+            for party, data in payoffs.items():
+                pct = (data["합계"] / exit_val * 100) if exit_val > 0 else 0
+                payoff_html += f"""
 <tr>
-        <td><strong>{party}</strong></td>
-        <td>{data['상환']:.2f}억</td>
-        <td>{data['전환']:.2f}억</td>
-        <td><strong>{data['합계']:.2f}억</strong></td>
-        <td>{pct:.1f}%</td>
+    <td><strong>{party}</strong></td>
+    <td>{data['상환']:.2f}억</td>
+    <td>{data['전환']:.2f}억</td>
+    <td><strong>{data['합계']:.2f}억</strong></td>
+    <td>{pct:.1f}%</td>
 </tr>
 """
-payoff_html += "</table>"
+            payoff_html += "</table>"
 
-st.markdown(payoff_html, unsafe_allow_html=True)
+            st.markdown(payoff_html, unsafe_allow_html=True)
     
     # =========================================================================
     # TAB 3: Valuation 분석
@@ -981,25 +993,26 @@ st.markdown(payoff_html, unsafe_allow_html=True)
             
             # 결과 테이블
             result_html = """
-            <table class="result-table">
-            <tr><th>Series</th><th>투자금액</th><th>LP Cost</th><th>Partial Val</th><th>GP Carry</th><th>LP Valuation</th><th>LP 수익률</th></tr>
-            """
+<table class="result-table">
+<tr><th>Series</th><th>투자금액</th><th>LP Cost</th><th>Partial Val</th><th>GP Carry</th><th>LP Valuation</th><th>LP 수익률</th></tr>
+"""
             for res in results:
-            return_color = '#10b981' if res['lp_return_pct'] >= 0 else '#ef4444'
-            result_html += f"""
-  <tr>
-            <td><span class="series-badge {res['series'].lower().replace(' ','-')}">{res['series']}</span></td>
-            <td>{res['investment']:.1f}억</td>
-            <td>{res['lp_cost']:.2f}억</td>
-            <td><strong>{res['partial_val']:.2f}억</strong></td>
-            <td>{res['gp_carry']:.2f}억</td>
-            <td><strong>{res['lp_valuation']:.2f}억</strong></td>
-            <td style="color:{return_color}"><strong>{res['lp_return_pct']:.1f}%</strong></td>
+                return_color = "#10b981" if res["lp_return_pct"] >= 0 else "#ef4444"
+                result_html += f"""
+<tr>
+    <td><span class="series-badge {res['series'].lower().replace(' ','-')}">{res['series']}</span></td>
+    <td>{res['investment']:.1f}억</td>
+    <td>{res['lp_cost']:.2f}억</td>
+    <td><strong>{res['partial_val']:.2f}억</strong></td>
+    <td>{res['gp_carry']:.2f}억</td>
+    <td><strong>{res['lp_valuation']:.2f}억</strong></td>
+    <td style="color:{return_color}"><strong>{res['lp_return_pct']:.1f}%</strong></td>
 </tr>
 """
-result_html += "</table>"
+            result_html += "</table>"
 
-st.markdown(result_html, unsafe_allow_html=True)
+            st.markdown(result_html, unsafe_allow_html=True)
+
             
             # 워터폴 차트
             st.markdown("---")
