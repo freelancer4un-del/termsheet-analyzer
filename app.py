@@ -945,18 +945,57 @@ def main():
                             unsafe_allow_html=True,
                         )
     
-                    st.markdown("#### 📋 지분 내역")
-    
-                    table_data = []
+            st.markdown("#### 📋 지분 내역")
+
+            # founders 정보가 dict에 없을 때도 안전하게 처리
+            founder_info = ownership.get("founders")
+
+            if founder_info is None:
+                founders_shares = st.session_state.global_input.founders_shares
+
+                # 투자자 주식수 합계 (있으면 사용, 없으면 RoundInput의 shares 사용)
+                investor_shares_sum = sum(
+                    ownership.get(r.name, {}).get("shares", r.shares)
+                    for r in valid_rounds
+                )
+                total_shares = founders_shares + investor_shares_sum
+                founder_own = (
+                    0.0 if total_shares == 0 else founders_shares / total_shares * 100
+                )
+
+                founder_info = {
+                    "shares": founders_shares,
+                    "ownership": founder_own,
+                }
+
+            table_data = []
+            table_data.append(
+                {
+                    "구분": "창업자",
+                    "주식수 (만주)": f"{founder_info['shares']:,.0f}",
+                    "지분율": f"{founder_info['ownership']:.2f}%",
+                    "투자금액": "-",
+                }
+            )
+
+            for r in valid_rounds:
+                if r.name in ownership:
                     table_data.append(
                         {
-                            "구분": "창업자",
-                            "주식수 (만주)": f"{ownership['founders']['shares']:,.0f}",
-                            "지분율": f"{ownership['founders']['ownership']:.2f}%",
-                            "투자금액": "-",
+                            "구분": r.name,
+                            "주식수 (만주)": f"{ownership[r.name].get('shares', r.shares):,.0f}",
+                            "지분율": f"{ownership[r.name].get('ownership', 0):.2f}%",
+                            "투자금액": f"{r.investment:,.1f}억",
                         }
                     )
-    
+
+            st.dataframe(
+                pd.DataFrame(table_data),
+                width="stretch",
+                hide_index=True,
+            )
+
+                    
                     for r in valid_rounds:
                         if r.name in ownership:
                             table_data.append(
