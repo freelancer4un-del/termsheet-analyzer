@@ -799,11 +799,15 @@ def main():
     with st.sidebar:
         st.markdown("## ⚙️ 설정")
         
+        # 기존 코드의 사이드바 부분 (약 600번째 줄 근처)
         st.markdown("### 👤 창업자 정보")
         st.session_state.global_input.founders_shares = st.number_input(
-            "창업자 보통주 (만주)", min_value=1, max_value=100000000,
-            value=int(st.session_state.global_input.founders_shares), step=100,
-            format="%d"
+            "창업자 보통주 (만주)", 
+            min_value=1, 
+            max_value=100000000,
+            value=int(st.session_state.global_input.founders_shares), 
+            step=1,  # [수정] 100 -> 1 로 변경하여 정밀한 입력 지원
+            format="%d" # [수정] 소수점 없이 정수로 표시
         )
         
         st.markdown("### 💰 기업가치")
