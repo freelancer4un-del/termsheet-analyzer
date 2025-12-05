@@ -996,16 +996,16 @@ def main():
             )
 
                     
-                    for r in valid_rounds:
-                        if r.name in ownership:
-                            table_data.append(
-                                {
-                                    "구분": r.name,
-                                    "주식수 (만주)": f"{ownership[r.name]['shares']:,.0f}",
-                                    "지분율": f"{ownership[r.name]['ownership']:.2f}%",
-                                    "투자금액": f"{r.investment:,.1f}억",
-                                }
-                            )
+                for r in valid_rounds:
+                    if r.name in ownership:
+                        table_data.append(
+                            {
+                                "구분": r.name,
+                                "주식수 (만주)": f"{ownership[r.name]['shares']:,.0f}",
+                                "지분율": f"{ownership[r.name]['ownership']:.2f}%",
+                                "투자금액": f"{r.investment:,.1f}억",
+                            }
+                        )
     
                     st.dataframe(
                         pd.DataFrame(table_data),
