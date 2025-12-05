@@ -1008,7 +1008,7 @@ def main():
 
         with col_left:
             fig_pie = create_ownership_pie(ownership)
-            st.plotly_chart(fig_pie, width="stretch")  # use_container_width → width
+            st.plotly_chart(fig_pie, width="stretch", key="ownership_pie_chart")
 
         with col_right:
             st.markdown("#### 💰 밸류에이션")
