@@ -641,19 +641,19 @@ def main():
         
         st.markdown("### 👤 창업자 정보")
         st.session_state.global_input.founders_shares = st.number_input(
-            "창업자 보통주 (만주)", min_value=100, max_value=100000000,
+            "창업자 보통주 (만주)", min_value=1.0, max_value=100000000,
             value=int(st.session_state.global_input.founders_shares), step=100,
             format="%d"
         )
         
         st.markdown("### 💰 기업가치")
         st.session_state.global_input.current_valuation = st.number_input(
-            "현재 기업가치 (억원)", min_value=10.0, max_value=100000.0,
+            "현재 기업가치 (억원)", min_value=1.0, max_value=100000.0,
             value=float(st.session_state.global_input.current_valuation), step=10.0
         )
         
         st.session_state.global_input.exit_valuation = st.number_input(
-            "예상 Exit 가치 (억원)", min_value=10.0, max_value=100000.0,
+            "예상 Exit 가치 (억원)", min_value=1.0, max_value=100000.0,
             value=float(st.session_state.global_input.exit_valuation), step=50.0
         )
         
