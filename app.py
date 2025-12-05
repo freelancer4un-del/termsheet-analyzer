@@ -756,233 +756,230 @@ def main():
 # =========================================================================
 # TAB 1: 투자조건 입력
 # =========================================================================
-    # =========================================================================
-# TAB 1: 투자조건 입력
-# =========================================================================
-with tab1:
-    st.markdown('<div class="section-title">📝 EXIT DIAGRAM INPUTS</div>', unsafe_allow_html=True)
-    st.caption("vcvtools.com 방식의 Term Sheet 입력")
-
-    # 라운드 활성화 체크박스
-    cols = st.columns(6)
-    for idx, r in enumerate(st.session_state.rounds):
-        with cols[idx]:
-            badge_class = r.name.lower().replace(" ", "-")
-            st.markdown(
-                f"<span class='series-badge {badge_class}'>{r.name}</span>",
-                unsafe_allow_html=True,
-            )
-            r.active = st.checkbox(
-                "활성", value=r.active, key=f"active_{r.name}", label_visibility="collapsed"
-            )
-
-    st.markdown("---")
-
-    # 활성 / 유효 라운드
-    active_rounds = [r for r in st.session_state.rounds if r.active]
-    valid_rounds = [r for r in active_rounds if r.shares > 0]
-
-    if active_rounds:
-        st.markdown("#### 라운드별 상세 조건")
-
-        input_cols = st.columns(len(active_rounds))
-        for idx, r in enumerate(active_rounds):
-            with input_cols[idx]:
-                st.markdown(f"**{r.name}**")
-
-                r.security_type = st.selectbox(
-                    "증권유형", ["RCPS", "CPS", "BW", "CB"],
-                    key=f"type_{r.name}",
-                    help="RCPS: 상환전환우선주, CPS: 전환우선주",
-                )
-
-                r.investment = st.number_input(
-                    "투자금액 (억원)",
-                    min_value=0.0, max_value=10000.0,
-                    value=float(r.investment), step=1.0,
-                    key=f"inv_{r.name}",
-                )
-
-                r.shares = st.number_input(
-                    "주식수 (만주)",
-                    min_value=0.0, max_value=100000.0,
-                    value=float(r.shares), step=10.0,
-                    key=f"shares_{r.name}",
-                )
-
-                r.liquidation_pref = st.selectbox(
-                    "청산우선권",
-                    [1.0, 1.5, 2.0, 2.5, 3.0],
-                    index=(
-                        [1.0, 1.5, 2.0, 2.5, 3.0].index(r.liquidation_pref)
-                        if r.liquidation_pref in [1.0, 1.5, 2.0, 2.5, 3.0] else 0
-                    ),
-                    key=f"lp_{r.name}",
-                    help="상환 시 투자금액의 배수",
-                )
-
-        st.markdown("---")
-
-        # ------------------------------
-        # 1) RVPS 및 전환순서
-        # ------------------------------
-        if valid_rounds:
-            st.markdown(
-                '<div class="section-title">📋 전환순서 (Conversion Order)</div>',
-                unsafe_allow_html=True,
-            )
-            st.caption("📖 강의자료: Conversion-Order Shortcut - RVPS가 낮을수록 먼저 전환")
-
-            order = get_conversion_order(st.session_state.rounds)
-
-            rvps_html = """
-<table class="result-table">
-<tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
-"""
-            for name, rvps in order:
-                r = next(r for r in st.session_state.rounds if r.name == name)
-                rvps_html += f"""
-<tr>
-    <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
-    <td>{r.investment:.1f}억</td>
-    <td>{r.shares:.0f}</td>
-    <td>{r.liquidation_pref}x</td>
-    <td>{r.redemption_value:.1f}억</td>
-    <td><strong>{rvps:.4f}</strong></td>
-</tr>
-"""
-            rvps_html += "</table>"
-            st.markdown(rvps_html, unsafe_allow_html=True)
-
-            order_badges = " → ".join(
-                f"<span class='series-badge {n.lower().replace(' ','-')}'>{n}</span>"
-                for n, _ in order
-            )
-            st.markdown(
-                f"""
-<div class="conversion-order-box">
-    <strong>전환순서:</strong> {order_badges}
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-
-            st.markdown(
-                """
-<div class="info-box">
-    💡 <strong>해석:</strong> RVPS가 낮다 = 주당 상환받을 금액이 적다 = 전환해서 지분을 받는 것이 더 빨리 유리해짐
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-
-            # ------------------------------
-            # 2) 지분 구조 & 밸류에이션 요약 (한 번만!)
-            # ------------------------------
-            st.markdown(
-                '<div class="section-title">📊 지분 구조 & 밸류에이션 요약</div>',
-                unsafe_allow_html=True,
-            )
-
-            ownership = calculate_ownership(
-                st.session_state.rounds,
-                st.session_state.global_input.founders_shares,
-            )
-
-            col_left, col_right = st.columns([1.1, 1.3])
-
-            # 파이 차트
-            with col_left:
-                fig_pie = create_ownership_pie(ownership)
-                st.plotly_chart(
-                    fig_pie,
-                    width="stretch",  # use_container_width 대체
-                    key="ownership_pie_chart",  # 중복 방지
-                )
-
-            # 메트릭 + 테이블
-            with col_right:
-                st.markdown("#### 💰 밸류에이션")
-
-                total_investment = sum(r.investment for r in valid_rounds)
-                total_investor_ownership = sum(
-                    ownership.get(r.name, {}).get("ownership", 0)
-                    for r in valid_rounds
-                )
-
-                if total_investor_ownership > 0:
-                    implied_post = total_investment / (total_investor_ownership / 100)
-                else:
-                    implied_post = 0.0
-                implied_pre = implied_post - total_investment
-
-                mcol1, mcol2, mcol3 = st.columns(3)
-                with mcol1:
-                    st.markdown(
-                        f"""
-                        <div class="metric-card">
-                            <div class="metric-label">총 투자금액</div>
-                            <div class="metric-value">{total_investment:,.1f}억</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                with mcol2:
-                    st.markdown(
-                        f"""
-                        <div class="metric-card">
-                            <div class="metric-label">POST MONEY</div>
-                            <div class="metric-value">{implied_post:,.1f}억</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                with mcol3:
-                    st.markdown(
-                        f"""
-                        <div class="metric-card">
-                            <div class="metric-label">PRE MONEY</div>
-                            <div class="metric-value">{implied_pre:,.1f}억</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown("#### 📋 지분 내역")
-
-                table_data = []
-                table_data.append(
-                    {
-                        "구분": "창업자",
-                        "주식수 (만주)": f"{ownership['founders']['shares']:,.0f}",
-                        "지분율": f"{ownership['founders']['ownership']:.2f}%",
-                        "투자금액": "-",
-                    }
-                )
-
-                for r in valid_rounds:
-                    if r.name in ownership:
-                        table_data.append(
-                            {
-                                "구분": r.name,
-                                "주식수 (만주)": f"{ownership[r.name]['shares']:,.0f}",
-                                "지분율": f"{ownership[r.name]['ownership']:.2f}%",
-                                "투자금액": f"{r.investment:,.1f}억",
-                            }
-                        )
-
-                st.dataframe(
-                    pd.DataFrame(table_data),
-                    width="stretch",
-                    hide_index=True,
-                )
-
-        else:
-            st.info("각 Series의 주식수(만주)를 0보다 크게 입력하면 RVPS와 지분 구조가 계산됩니다.")
-    else:
-        st.info("👆 위에서 분석할 Series를 선택하세요.")
-
+    with tab1:
+        st.markdown('<div class="section-title">📝 EXIT DIAGRAM INPUTS</div>', unsafe_allow_html=True)
+        st.caption("vcvtools.com 방식의 Term Sheet 입력")
     
+        # 라운드 활성화 체크박스
+        cols = st.columns(6)
+        for idx, r in enumerate(st.session_state.rounds):
+            with cols[idx]:
+                badge_class = r.name.lower().replace(" ", "-")
+                st.markdown(
+                    f"<span class='series-badge {badge_class}'>{r.name}</span>",
+                    unsafe_allow_html=True,
+                )
+                r.active = st.checkbox(
+                    "활성", value=r.active, key=f"active_{r.name}", label_visibility="collapsed"
+                )
+    
+        st.markdown("---")
+    
+        # 활성 / 유효 라운드
+        active_rounds = [r for r in st.session_state.rounds if r.active]
+        valid_rounds = [r for r in active_rounds if r.shares > 0]
+    
+        if active_rounds:
+            st.markdown("#### 라운드별 상세 조건")
+    
+            input_cols = st.columns(len(active_rounds))
+            for idx, r in enumerate(active_rounds):
+                with input_cols[idx]:
+                    st.markdown(f"**{r.name}**")
+    
+                    r.security_type = st.selectbox(
+                        "증권유형", ["RCPS", "CPS", "BW", "CB"],
+                        key=f"type_{r.name}",
+                        help="RCPS: 상환전환우선주, CPS: 전환우선주",
+                    )
+    
+                    r.investment = st.number_input(
+                        "투자금액 (억원)",
+                        min_value=0.0, max_value=10000.0,
+                        value=float(r.investment), step=1.0,
+                        key=f"inv_{r.name}",
+                    )
+    
+                    r.shares = st.number_input(
+                        "주식수 (만주)",
+                        min_value=0.0, max_value=100000.0,
+                        value=float(r.shares), step=10.0,
+                        key=f"shares_{r.name}",
+                    )
+    
+                    r.liquidation_pref = st.selectbox(
+                        "청산우선권",
+                        [1.0, 1.5, 2.0, 2.5, 3.0],
+                        index=(
+                            [1.0, 1.5, 2.0, 2.5, 3.0].index(r.liquidation_pref)
+                            if r.liquidation_pref in [1.0, 1.5, 2.0, 2.5, 3.0] else 0
+                        ),
+                        key=f"lp_{r.name}",
+                        help="상환 시 투자금액의 배수",
+                    )
+    
+            st.markdown("---")
+    
+            # ------------------------------
+            # 1) RVPS 및 전환순서
+            # ------------------------------
+            if valid_rounds:
+                st.markdown(
+                    '<div class="section-title">📋 전환순서 (Conversion Order)</div>',
+                    unsafe_allow_html=True,
+                )
+                st.caption("📖 강의자료: Conversion-Order Shortcut - RVPS가 낮을수록 먼저 전환")
+    
+                order = get_conversion_order(st.session_state.rounds)
+    
+                rvps_html = """
+    <table class="result-table">
+    <tr><th>Series</th><th>투자금액</th><th>주식수 (만주)</th><th>청산배수</th><th>상환가치 (RV)</th><th>RVPS</th></tr>
+    """
+                for name, rvps in order:
+                    r = next(r for r in st.session_state.rounds if r.name == name)
+                    rvps_html += f"""
+    <tr>
+        <td><span class="series-badge {name.lower().replace(' ','-')}">{name}</span></td>
+        <td>{r.investment:.1f}억</td>
+        <td>{r.shares:.0f}</td>
+        <td>{r.liquidation_pref}x</td>
+        <td>{r.redemption_value:.1f}억</td>
+        <td><strong>{rvps:.4f}</strong></td>
+    </tr>
+    """
+                rvps_html += "</table>"
+                st.markdown(rvps_html, unsafe_allow_html=True)
+    
+                order_badges = " → ".join(
+                    f"<span class='series-badge {n.lower().replace(' ','-')}'>{n}</span>"
+                    for n, _ in order
+                )
+                st.markdown(
+                    f"""
+    <div class="conversion-order-box">
+        <strong>전환순서:</strong> {order_badges}
+    </div>
+    """,
+                    unsafe_allow_html=True,
+                )
+    
+                st.markdown(
+                    """
+    <div class="info-box">
+        💡 <strong>해석:</strong> RVPS가 낮다 = 주당 상환받을 금액이 적다 = 전환해서 지분을 받는 것이 더 빨리 유리해짐
+    </div>
+    """,
+                    unsafe_allow_html=True,
+                )
+    
+                # ------------------------------
+                # 2) 지분 구조 & 밸류에이션 요약 (한 번만!)
+                # ------------------------------
+                st.markdown(
+                    '<div class="section-title">📊 지분 구조 & 밸류에이션 요약</div>',
+                    unsafe_allow_html=True,
+                )
+    
+                ownership = calculate_ownership(
+                    st.session_state.rounds,
+                    st.session_state.global_input.founders_shares,
+                )
+    
+                col_left, col_right = st.columns([1.1, 1.3])
+    
+                # 파이 차트
+                with col_left:
+                    fig_pie = create_ownership_pie(ownership)
+                    st.plotly_chart(
+                        fig_pie,
+                        width="stretch",  # use_container_width 대체
+                        key="ownership_pie_chart",  # 중복 방지
+                    )
+    
+                # 메트릭 + 테이블
+                with col_right:
+                    st.markdown("#### 💰 밸류에이션")
+    
+                    total_investment = sum(r.investment for r in valid_rounds)
+                    total_investor_ownership = sum(
+                        ownership.get(r.name, {}).get("ownership", 0)
+                        for r in valid_rounds
+                    )
+    
+                    if total_investor_ownership > 0:
+                        implied_post = total_investment / (total_investor_ownership / 100)
+                    else:
+                        implied_post = 0.0
+                    implied_pre = implied_post - total_investment
+    
+                    mcol1, mcol2, mcol3 = st.columns(3)
+                    with mcol1:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card">
+                                <div class="metric-label">총 투자금액</div>
+                                <div class="metric-value">{total_investment:,.1f}억</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    with mcol2:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card">
+                                <div class="metric-label">POST MONEY</div>
+                                <div class="metric-value">{implied_post:,.1f}억</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    with mcol3:
+                        st.markdown(
+                            f"""
+                            <div class="metric-card">
+                                <div class="metric-label">PRE MONEY</div>
+                                <div class="metric-value">{implied_pre:,.1f}억</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+    
+                    st.markdown("#### 📋 지분 내역")
+    
+                    table_data = []
+                    table_data.append(
+                        {
+                            "구분": "창업자",
+                            "주식수 (만주)": f"{ownership['founders']['shares']:,.0f}",
+                            "지분율": f"{ownership['founders']['ownership']:.2f}%",
+                            "투자금액": "-",
+                        }
+                    )
+    
+                    for r in valid_rounds:
+                        if r.name in ownership:
+                            table_data.append(
+                                {
+                                    "구분": r.name,
+                                    "주식수 (만주)": f"{ownership[r.name]['shares']:,.0f}",
+                                    "지분율": f"{ownership[r.name]['ownership']:.2f}%",
+                                    "투자금액": f"{r.investment:,.1f}억",
+                                }
+                            )
+    
+                    st.dataframe(
+                        pd.DataFrame(table_data),
+                        width="stretch",
+                        hide_index=True,
+                    )
+    
+            else:
+                st.info("각 Series의 주식수(만주)를 0보다 크게 입력하면 RVPS와 지분 구조가 계산됩니다.")
+        else:
+            st.info("👆 위에서 분석할 Series를 선택하세요.")
+    
+        
 
     # =========================================================================
     # TAB 2: Exit Diagram
