@@ -984,119 +984,119 @@ def main():
         else:
             st.info("👆 위에서 분석할 Series를 선택하세요.")
 
-                # -----------------------------------------------------------------
-                # ✅ 지분 구조 + Post/Pre Money 요약
-                # -----------------------------------------------------------------
-                st.markdown("---")
+        # -----------------------------------------------------------------
+        # ✅ 지분 구조 + Post/Pre Money 요약
+        # -----------------------------------------------------------------
+        st.markdown("---")
+        st.markdown(
+            '<div class="section-title">📊 지분 구조 & 밸류에이션 요약</div>',
+            unsafe_allow_html=True,
+        )
+
+        ownership = calculate_ownership(
+            st.session_state.rounds,
+            st.session_state.global_input.founders_shares,
+        )
+
+        # 🔧 여기서 지분 계산에 쓸 valid_rounds를 다시 정의
+        valid_rounds = [
+            r for r in st.session_state.rounds
+            if r.active and ownership.get(r.name, {}).get("ownership", 0) > 0
+        ]
+
+        col_left, col_right = st.columns([1, 1])
+
+        with col_left:
+            fig_pie = create_ownership_pie(ownership)
+            st.plotly_chart(fig_pie, width="stretch")  # use_container_width → width
+
+        with col_right:
+            st.markdown("#### 💰 밸류에이션")
+
+            total_investment = sum(r.investment for r in valid_rounds)
+            total_investor_ownership = sum(
+                ownership.get(r.name, {}).get("ownership", 0.0)
+                for r in valid_rounds
+                if r.name in ownership
+            )
+
+            if total_investor_ownership > 0:
+                implied_post = total_investment / (total_investor_ownership / 100.0)
+            else:
+                implied_post = 0.0
+
+            implied_pre = implied_post - total_investment
+
+            m1, m2, m3 = st.columns(3)
+            with m1:
                 st.markdown(
-                    '<div class="section-title">📊 지분 구조 & 밸류에이션 요약</div>',
+                    f"""
+<div class="metric-card">
+<div class="metric-label">총 투자금액</div>
+<div class="metric-value">{format_currency(total_investment)}</div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+            with m2:
+                st.markdown(
+                    f"""
+<div class="metric-card">
+<div class="metric-label">Post-Money</div>
+<div class="metric-value">{format_currency(implied_post)}</div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+            with m3:
+                st.markdown(
+                    f"""
+<div class="metric-card">
+<div class="metric-label">Pre-Money</div>
+<div class="metric-value">{format_currency(implied_pre)}</div>
+</div>
+""",
                     unsafe_allow_html=True,
                 )
 
-                ownership = calculate_ownership(
-                    st.session_state.rounds,
-                    st.session_state.global_input.founders_shares,
-                )
+            st.markdown("#### 📋 지분 내역")
 
-                # 🔧 여기서 지분 계산에 쓸 valid_rounds를 다시 정의
-                valid_rounds = [
-                    r for r in st.session_state.rounds
-                    if r.active and ownership.get(r.name, {}).get("ownership", 0) > 0
-                ]
-
-                col_left, col_right = st.columns([1, 1])
-
-                with col_left:
-                    fig_pie = create_ownership_pie(ownership)
-                    st.plotly_chart(fig_pie, width="stretch")  # use_container_width → width
-
-                with col_right:
-                    st.markdown("#### 💰 밸류에이션")
-
-                    total_investment = sum(r.investment for r in valid_rounds)
-                    total_investor_ownership = sum(
-                        ownership.get(r.name, {}).get("ownership", 0.0)
-                        for r in valid_rounds
-                        if r.name in ownership
-                    )
-
-                    if total_investor_ownership > 0:
-                        implied_post = total_investment / (total_investor_ownership / 100.0)
-                    else:
-                        implied_post = 0.0
-
-                    implied_pre = implied_post - total_investment
-
-                    m1, m2, m3 = st.columns(3)
-                    with m1:
-                        st.markdown(
-                            f"""
-<div class="metric-card">
-    <div class="metric-label">총 투자금액</div>
-    <div class="metric-value">{format_currency(total_investment)}</div>
-</div>
-""",
-                            unsafe_allow_html=True,
-                        )
-                    with m2:
-                        st.markdown(
-                            f"""
-<div class="metric-card">
-    <div class="metric-label">Post-Money</div>
-    <div class="metric-value">{format_currency(implied_post)}</div>
-</div>
-""",
-                            unsafe_allow_html=True,
-                        )
-                    with m3:
-                        st.markdown(
-                            f"""
-<div class="metric-card">
-    <div class="metric-label">Pre-Money</div>
-    <div class="metric-value">{format_currency(implied_pre)}</div>
-</div>
-""",
-                            unsafe_allow_html=True,
-                        )
-
-                    st.markdown("#### 📋 지분 내역")
-
-                    table_html = """
+            table_html = """
 <table class="result-table">
 <tr>
-    <th>구분</th>
-    <th>주식수 (만주)</th>
-    <th>지분율</th>
-    <th>투자금액</th>
+<th>구분</th>
+<th>주식수 (만주)</th>
+<th>지분율</th>
+<th>투자금액</th>
 </tr>
 """
 
-                    # 창업자
-                    founder = ownership.get("창업자", ownership.get("founders", {}))
+            # 창업자
+            founder = ownership.get("창업자", ownership.get("founders", {}))
+            table_html += f"""
+<tr>
+<td><strong>창업자</strong></td>
+<td>{founder.get('shares', 0):,.0f}</td>
+<td>{founder.get('ownership', 0.0):.2f}%</td>
+<td>-</td>
+</tr>
+"""
+
+            # 각 시리즈
+            for r in valid_rounds:
+                if r.name in ownership:
+                    data = ownership[r.name]
                     table_html += f"""
 <tr>
-    <td><strong>창업자</strong></td>
-    <td>{founder.get('shares', 0):,.0f}</td>
-    <td>{founder.get('ownership', 0.0):.2f}%</td>
-    <td>-</td>
+<td>{r.name}</td>
+<td>{data.get('shares', 0):,.0f}</td>
+<td>{data.get('ownership', 0.0):.2f}%</td>
+<td>{r.investment:.1f}억</td>
 </tr>
 """
 
-                    # 각 시리즈
-                    for r in valid_rounds:
-                        if r.name in ownership:
-                            data = ownership[r.name]
-                            table_html += f"""
-<tr>
-    <td>{r.name}</td>
-    <td>{data.get('shares', 0):,.0f}</td>
-    <td>{data.get('ownership', 0.0):.2f}%</td>
-    <td>{r.investment:.1f}억</td>
-</tr>
-"""
-
-                    table_html += "</table>"
-                    st.markdown(table_html, unsafe_allow_html=True)
+            table_html += "</table>"
+            st.markdown(table_html, unsafe_allow_html=True)
 
     
 
