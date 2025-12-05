@@ -519,38 +519,34 @@ def create_exit_diagram(rounds: List[RoundInput], founders_shares: float, max_ex
 
         color = colors.get(name, '#64748b')
 
-        # 세로선
+        # vline
         fig.add_vline(
             x=cp_val,
             line_dash="dash",
             line_color=color,
         )
 
-        # 레이블
-        fig.add_annotation(
-            x=cp_val,
-            y=1.02,              # 그래프 위쪽에 살짝
-            xref="x",
-            yref="paper",
-            text=f"{name} CP",
-            showarrow=False,
-            font=dict(color=color, size=10),
-            align="center",
-        )
 
     
-    fig.update_layout(
-        title=dict(text='Exit Diagram (Composite)', font=dict(size=16, color='#f8fafc')),
-        xaxis=dict(title='Exit 가치 (억원)', titlefont=dict(color='#94a3b8'),
-                   tickfont=dict(color='#64748b'), gridcolor='rgba(255,255,255,0.05)'),
-        yaxis=dict(title='수령액 (억원)', titlefont=dict(color='#94a3b8'),
-                   tickfont=dict(color='#64748b'), gridcolor='rgba(255,255,255,0.05)'),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        legend=dict(bgcolor='rgba(20,20,30,0.8)', font=dict(color='#f8fafc')),
-        hovermode='x unified',
-        height=450
-    )
+fig.update_layout(
+    title=dict(text='Exit Diagram (Composite)', font=dict(size=16, color='#f8fafc')),
+    xaxis=dict(
+        title=dict(text='Exit 가치 (억원)', font=dict(color='#94a3b8')),
+        tickfont=dict(color='#64748b'),
+        gridcolor='rgba(255,255,255,0.05)'
+    ),
+    yaxis=dict(
+        title=dict(text='수령액 (억원)', font=dict(color='#94a3b8')),
+        tickfont=dict(color='#64748b'),
+        gridcolor='rgba(255,255,255,0.05)'
+    ),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    legend=dict(bgcolor='rgba(20,20,30,0.8)', font=dict(color='#f8fafc')),
+    hovermode='x unified',
+    height=450
+)
+
     
     return fig
 
@@ -861,7 +857,7 @@ def main():
                 st.session_state.rounds,
                 st.session_state.global_input.founders_shares
             )
-            st.plotly_chart(fig_series, use_container_width=True)
+            st.plotly_chart(fig_series, width="stretch")
             
             # Composite Diagram
             st.markdown("#### Composite Diagram")
@@ -869,7 +865,7 @@ def main():
                 st.session_state.rounds,
                 st.session_state.global_input.founders_shares
             )
-            st.plotly_chart(fig_composite, use_container_width=True)
+            st.plotly_chart(fig_composite, width="stretch")
             
             # 특정 Exit Value 분석
             st.markdown("---")
@@ -976,7 +972,7 @@ def main():
             
             selected_data = next(r for r in results if r['series'] == selected_series)
             fig_waterfall = create_waterfall_chart(selected_data, selected_series)
-            st.plotly_chart(fig_waterfall, use_container_width=True)
+            st.plotly_chart(fig_waterfall, width="stretch")
             
             # Breakeven 계산
             st.markdown("---")
