@@ -649,12 +649,12 @@ def main():
         st.markdown("### 💰 기업가치")
         st.session_state.global_input.current_valuation = st.number_input(
             "현재 기업가치 (억원)", min_value=10.0, max_value=100000.0,
-            value=st.session_state.global_input.current_valuation, step=10.0
+            value=float(st.session_state.global_input.current_valuation), step=10.0
         )
         
         st.session_state.global_input.exit_valuation = st.number_input(
             "예상 Exit 가치 (억원)", min_value=10.0, max_value=100000.0,
-            value=st.session_state.global_input.exit_valuation, step=50.0
+            value=float(st.session_state.global_input.exit_valuation), step=50.0
         )
         
         st.markdown("### 📈 옵션 파라미터")
@@ -666,7 +666,7 @@ def main():
         )
         
         st.session_state.global_input.risk_free_rate = st.slider(
-            "무위험이자율 (%)", 0.0, 10.0, st.session_state.global_input.risk_free_rate, 0.5
+            "무위험이자율 (%)", 0.0, 10.0, float(st.session_state.global_input.risk_free_rate), 0.5
         )
         
         st.session_state.global_input.holding_period = st.slider(
@@ -679,19 +679,19 @@ def main():
         
         st.session_state.fund_input.committed_capital = st.number_input(
             "약정총액 (억원)", min_value=10.0, max_value=10000.0,
-            value=st.session_state.fund_input.committed_capital, step=50.0
+            value=float(st.session_state.fund_input.committed_capital), step=50.0
         )
         
         st.session_state.fund_input.management_fee_rate = st.slider(
-            "관리보수 (%)", 0.0, 5.0, st.session_state.fund_input.management_fee_rate, 0.25
+            "관리보수 (%)", 0.0, 5.0, float(st.session_state.fund_input.management_fee_rate), 0.25
         )
         
         st.session_state.fund_input.carried_interest = st.slider(
-            "성과보수 (%)", 0.0, 30.0, st.session_state.fund_input.carried_interest, 1.0
+            "성과보수 (%)", 0.0, 30.0, float(st.session_state.fund_input.carried_interest), 1.0
         )
         
         st.session_state.fund_input.hurdle_rate = st.slider(
-            "허들레이트 (%)", 0.0, 15.0, st.session_state.fund_input.hurdle_rate, 0.5
+            "허들레이트 (%)", 0.0, 15.0, float(st.session_state.fund_input.hurdle_rate), 0.5
         )
     
     # ==========================================================================
