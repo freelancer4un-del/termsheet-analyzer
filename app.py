@@ -642,7 +642,7 @@ def main():
         st.markdown("### 👤 창업자 정보")
         st.session_state.global_input.founders_shares = st.number_input(
             "창업자 보통주 (만주)", min_value=1.0, max_value=100000000,
-            value=int(st.session_state.global_input.founders_shares), step=100,
+            value=float(st.session_state.global_input.founders_shares), step=100,
             format="%d"
         )
         
