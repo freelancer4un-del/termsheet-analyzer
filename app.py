@@ -470,85 +470,119 @@ def calculate_gp_lp_split(partial_val: float, fund: FundInput, investment: float
 # =============================================================================
 # 시각화 함수
 # =============================================================================
-def create_exit_diagram(rounds: List[RoundInput], founders_shares: float, max_exit: float = None) -> go.Figure:
+def create_exit_diagram(rounds: List[RoundInput],
+                        founders_shares: float,
+                        max_exit: float = None) -> go.Figure:
     """Exit Diagram (Composite)"""
+
     cp_data = calculate_conversion_points(rounds, founders_shares)
-    
+
+    # 전환포인트가 없으면 빈 Figure 반환
     if not cp_data:
         return go.Figure()
-    
+
+    # max_exit 자동 설정
     if max_exit is None:
-        max_cp = max(d['conversion_point'] for d in cp_data.values())
-        max_exit = max_cp * 1.5
-    
+        finite_cps = [
+            d["conversion_point"]
+            for d in cp_data.values()
+            if d.get("conversion_point") is not None and math.isfinite(d["conversion_point"])
+        ]
+        if finite_cps:
+            max_cp = max(finite_cps)
+            max_exit = max_cp * 1.5
+        else:
+            max_exit = 1000  # fallback
+
     exit_vals = np.linspace(0, max_exit, 200)
-    
-    parties = ['창업자'] + [r.name for r in rounds if r.active]
+
+    # 이해관계자 리스트
+    parties = ["창업자"] + [r.name for r in rounds if r.active]
     payoff_data = {p: [] for p in parties}
-    
+
+    # 각 Exit 가치마다 수령액 계산
     for ev in exit_vals:
         payoffs = calculate_exit_payoffs(ev, rounds, founders_shares)
         for p in parties:
-            payoff_data[p].append(payoffs.get(p, {}).get('합계', 0))
-    
+            payoff_data[p].append(payoffs.get(p, {}).get("합계", 0))
+
     colors = {
-        '창업자': '#10b981',
-        'Series A': '#6366f1',
-        'Series B': '#f97316',
-        'Series C': '#22c55e',
-        'Series D': '#d946ef',
-        'Series E': '#ec4899',
-        'Series F': '#6b7280',
+        "창업자": "#10b981",
+        "Series A": "#6366f1",
+        "Series B": "#f97316",
+        "Series C": "#22c55e",
+        "Series D": "#d946ef",
+        "Series E": "#ec4899",
+        "Series F": "#6b7280",
     }
-    
+
     fig = go.Figure()
-    
+
+    # 각 이해관계자 라인 추가
     for p in parties:
-        fig.add_trace(go.Scatter(
-            x=exit_vals, y=payoff_data[p],
-            name=p, mode='lines',
-            line=dict(width=3, color=colors.get(p, '#64748b')),
-            hovertemplate=f'<b>{p}</b><br>Exit: %{{x:.1f}}억<br>수령액: %{{y:.2f}}억<extra></extra>'
-        ))
-    
-    # 전환포인트 표시
-    for name, data in cp_data.items():
-        cp_val = data['conversion_point']
-        if cp_val is None or not math.isfinite(cp_val):
-            continue
-
-        color = colors.get(name, '#64748b')
-
-        # vline
-        fig.add_vline(
-            x=cp_val,
-            line_dash="dash",
-            line_color=color,
+        fig.add_trace(
+            go.Scatter(
+                x=exit_vals,
+                y=payoff_data[p],
+                name=p,
+                mode="lines",
+                line=dict(width=3, color=colors.get(p, "#64748b")),
+                hovertemplate=(
+                    f"<b>{p}</b><br>"
+                    "Exit: %{x:.1f}억<br>"
+                    "수령액: %{y:.2f}억<extra></extra>"
+                ),
+            )
         )
 
+    # 전환포인트 수직선 및 라벨
+    for name, data in cp_data.items():
+        cp = data.get("conversion_point")
+        if cp is None or not math.isfinite(cp):
+            continue
 
-    
-fig.update_layout(
-    title=dict(text='Exit Diagram (Composite)', font=dict(size=16, color='#f8fafc')),
-    xaxis=dict(
-        title=dict(text='Exit 가치 (억원)', font=dict(color='#94a3b8')),
-        tickfont=dict(color='#64748b'),
-        gridcolor='rgba(255,255,255,0.05)'
-    ),
-    yaxis=dict(
-        title=dict(text='수령액 (억원)', font=dict(color='#94a3b8')),
-        tickfont=dict(color='#64748b'),
-        gridcolor='rgba(255,255,255,0.05)'
-    ),
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)',
-    legend=dict(bgcolor='rgba(20,20,30,0.8)', font=dict(color='#f8fafc')),
-    hovermode='x unified',
-    height=450
-)
+        fig.add_vline(
+            x=cp,
+            line_dash="dash",
+            line_color=colors.get(name, "#64748b"),
+        )
+        fig.add_annotation(
+            x=cp,
+            y=0,
+            yref="paper",
+            yanchor="bottom",
+            showarrow=False,
+            text=f"{name} CP",
+            font=dict(size=10, color=colors.get(name, "#64748b")),
+        )
 
-    
+    fig.update_layout(
+        title=dict(
+            text="Exit Diagram (Composite)",
+            font=dict(size=16, color="#f8fafc"),
+        ),
+        xaxis=dict(
+            title=dict(text="Exit 가치 (억원)", font=dict(color="#94a3b8")),
+            tickfont=dict(color="#64748b"),
+            gridcolor="rgba(255,255,255,0.05)",
+        ),
+        yaxis=dict(
+            title=dict(text="수령액 (억원)", font=dict(color="#94a3b8")),
+            tickfont=dict(color="#64748b"),
+            gridcolor="rgba(255,255,255,0.05)",
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        legend=dict(
+            bgcolor="rgba(20,20,30,0.8)",
+            font=dict(color="#f8fafc"),
+        ),
+        hovermode="x unified",
+        height=450,
+    )
+
     return fig
+
 
 def create_series_diagrams(rounds: List[RoundInput], founders_shares: float, max_exit: float = None) -> go.Figure:
     """개별 Series Exit Diagram"""
